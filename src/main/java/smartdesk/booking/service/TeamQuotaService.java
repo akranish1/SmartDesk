@@ -89,4 +89,42 @@ public class TeamQuotaService {
             );
         }
     }
+    public boolean hasQuotaAvailableForUpdate(
+            Team team,
+            Floor floor,
+            Instant startTime,
+            Instant endTime) {
+
+        validateRequest(
+                team,
+                floor,
+                startTime,
+                endTime
+        );
+
+        FloorTeamQuota quota =
+                floorTeamQuotaRepository
+                        .findByFloorAndTeamForUpdate(
+                                floor,
+                                team
+                        )
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "No quota configured for team "
+                                                + team.getName()
+                                                + " on floor "
+                                                + floor.getName()
+                                ));
+
+        long currentBookings =
+                bookingRepository.countConcurrentBookings(
+                        team,
+                        floor,
+                        startTime,
+                        endTime
+                );
+
+        return currentBookings
+                < quota.getMaxConcurrentBookings();
+    }
 }
