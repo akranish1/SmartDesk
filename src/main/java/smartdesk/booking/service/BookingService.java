@@ -1,5 +1,11 @@
 package smartdesk.booking.service;
 
+
+import smartdesk.booking.exception.BookingConflictException;
+import smartdesk.booking.exception.DeskUnavailableException;
+import smartdesk.booking.exception.InvalidBookingException;
+import smartdesk.booking.exception.QuotaExceededException;
+import smartdesk.booking.exception.ResourceNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import smartdesk.booking.dto.request.DeskBookingRequest;
@@ -41,14 +47,13 @@ public class BookingService {
         User user = userRepository.findById(
                 request.getUserId()
         ).orElseThrow(() ->
-                new IllegalArgumentException(
-                        "User not found: "
-                                + request.getUserId()
+                new ResourceNotFoundException(
+                        "User not found: " + request.getUserId()
                 )
         );
 
         if (!user.isActive()) {
-            throw new IllegalStateException(
+            throw new InvalidBookingException(
                     "User is inactive"
             );
         }
@@ -56,14 +61,14 @@ public class BookingService {
         Desk desk = deskRepository.findByIdForUpdate(
                 request.getDeskId()
         ).orElseThrow(() ->
-                new IllegalArgumentException(
-                        "Desk not found: "
-                                + request.getDeskId()
-                ));
+                new ResourceNotFoundException(
+                        "Desk not found: " + request.getDeskId()
+                )
+        );
 
         if (desk.getStatus() != DeskStatus.ACTIVE) {
-            throw new IllegalStateException(
-                    "Desk is not active"
+            throw new DeskUnavailableException(
+                    "Desk is not active: " + desk.getId()
             );
         }
 
@@ -77,7 +82,7 @@ public class BookingService {
                         );
 
         if (deskAlreadyBooked) {
-            throw new IllegalStateException(
+            throw new BookingConflictException(
                     "Desk is already booked for the requested time"
             );
         }
@@ -91,7 +96,7 @@ public class BookingService {
                 );
 
         if (!quotaAvailable) {
-            throw new IllegalStateException(
+            throw new QuotaExceededException(
                     "Team booking quota exceeded"
             );
         }
@@ -109,39 +114,40 @@ public class BookingService {
         return toResponse(savedBooking);
     }
 
-    private void validateRequest(
-            DeskBookingRequest request) {
+    private void validateRequest(DeskBookingRequest request) {
 
         if (request == null) {
-            throw new IllegalArgumentException(
-                    "Booking request cannot be null"
+            throw new InvalidBookingException(
+                    "Booking request must not be null"
             );
         }
 
         if (request.getUserId() == null) {
-            throw new IllegalArgumentException(
-                    "User ID is required"
+            throw new InvalidBookingException(
+                    "User ID must not be null"
             );
         }
 
         if (request.getDeskId() == null) {
-            throw new IllegalArgumentException(
-                    "Desk ID is required"
+            throw new InvalidBookingException(
+                    "Desk ID must not be null"
             );
         }
 
-        if (request.getStartTime() == null ||
-                request.getEndTime() == null) {
-
-            throw new IllegalArgumentException(
-                    "Start time and end time are required"
+        if (request.getStartTime() == null) {
+            throw new InvalidBookingException(
+                    "Start time must not be null"
             );
         }
 
-        if (!request.getStartTime()
-                .isBefore(request.getEndTime())) {
+        if (request.getEndTime() == null) {
+            throw new InvalidBookingException(
+                    "End time must not be null"
+            );
+        }
 
-            throw new IllegalArgumentException(
+        if (!request.getStartTime().isBefore(request.getEndTime())) {
+            throw new InvalidBookingException(
                     "Start time must be before end time"
             );
         }

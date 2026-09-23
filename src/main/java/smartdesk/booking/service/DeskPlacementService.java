@@ -4,6 +4,9 @@ import org.springframework.stereotype.Service;
 import smartdesk.booking.dto.request.DeskPlacementRequest;
 import smartdesk.booking.dto.response.DeskPlacementResponse;
 import smartdesk.booking.entity.Desk;
+import smartdesk.booking.exception.DeskUnavailableException;
+import smartdesk.booking.exception.InvalidBookingException;
+import smartdesk.booking.exception.ResourceNotFoundException;
 import smartdesk.booking.repository.DeskRepository;
 
 import java.util.Comparator;
@@ -29,23 +32,26 @@ public class DeskPlacementService {
 
         validateRequest(request);
 
+        // Find preferred desk
         Desk preferredDesk =
                 deskRepository.findById(request.getPreferredDeskId())
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new ResourceNotFoundException(
                                         "Preferred desk not found: "
                                                 + request.getPreferredDeskId()
-                                ));
+                                )
+                        );
 
         // Verify preferred desk belongs to requested floor
         if (!preferredDesk.getFloor().getId()
                 .equals(request.getFloorId())) {
 
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Preferred desk does not belong to the requested floor"
             );
         }
 
+        // Find desks available for the requested time
         List<Desk> availableDesks =
                 deskSearchService.findAvailableDeskEntities(
                         request.getFloorId(),
@@ -54,11 +60,18 @@ public class DeskPlacementService {
                 );
 
         if (availableDesks.isEmpty()) {
-            throw new IllegalStateException(
-                    "No available desks found"
+            throw new DeskUnavailableException(
+                    "No suitable desk is available for the requested time"
             );
         }
 
+        /*
+         * PriorityQueue keeps the desk with the smallest
+         * Manhattan distance at the head.
+         *
+         * If two desks have the same distance,
+         * desk ID is used as the deterministic tie-breaker.
+         */
         PriorityQueue<DeskDistance> queue =
                 new PriorityQueue<>(
                         Comparator
@@ -107,19 +120,19 @@ public class DeskPlacementService {
             DeskPlacementRequest request) {
 
         if (request == null) {
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Placement request cannot be null"
             );
         }
 
         if (request.getFloorId() == null) {
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Floor ID is required"
             );
         }
 
         if (request.getPreferredDeskId() == null) {
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Preferred desk ID is required"
             );
         }
@@ -127,7 +140,7 @@ public class DeskPlacementService {
         if (request.getStartTime() == null ||
                 request.getEndTime() == null) {
 
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Start time and end time are required"
             );
         }
@@ -135,7 +148,7 @@ public class DeskPlacementService {
         if (!request.getStartTime()
                 .isBefore(request.getEndTime())) {
 
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Start time must be before end time"
             );
         }

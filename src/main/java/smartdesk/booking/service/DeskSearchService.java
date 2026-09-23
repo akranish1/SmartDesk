@@ -6,6 +6,8 @@ import smartdesk.booking.dto.response.DeskResponse;
 import smartdesk.booking.entity.Desk;
 import smartdesk.booking.entity.DeskStatus;
 import smartdesk.booking.entity.Floor;
+import smartdesk.booking.exception.InvalidBookingException;
+import smartdesk.booking.exception.ResourceNotFoundException;
 import smartdesk.booking.repository.DeskRepository;
 import smartdesk.booking.repository.FloorRepository;
 
@@ -31,9 +33,10 @@ public class DeskSearchService {
 
         Floor floor = floorRepository.findById(floorId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
+                        new ResourceNotFoundException(
                                 "Floor not found: " + floorId
-                        ));
+                        )
+                );
 
         return deskRepository.findAvailableDesks(
                 floor,
@@ -49,11 +52,12 @@ public class DeskSearchService {
         validateRequest(request);
 
         Floor floor = floorRepository.findById(request.getFloorId())
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Floor not found: " + request.getFloorId()
-                        )
-                );
+
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Floor not found: " + request.getFloorId()
+                                )
+                        );
 
         List<Desk> desks = deskRepository.findAvailableDesks(
                 floor,
@@ -71,13 +75,13 @@ public class DeskSearchService {
             DeskSearchRequest request) {
 
         if (request == null) {
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Search request cannot be null"
             );
         }
 
         if (request.getFloorId() == null) {
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Floor ID is required"
             );
         }
@@ -85,7 +89,7 @@ public class DeskSearchService {
         if (request.getStartTime() == null ||
                 request.getEndTime() == null) {
 
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Start time and end time are required"
             );
         }
@@ -93,7 +97,7 @@ public class DeskSearchService {
         if (!request.getStartTime()
                 .isBefore(request.getEndTime())) {
 
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Start time must be before end time"
             );
         }

@@ -1,5 +1,8 @@
 package smartdesk.booking.service;
 
+import smartdesk.booking.exception.InvalidBookingException;
+import smartdesk.booking.exception.QuotaExceededException;
+import smartdesk.booking.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import smartdesk.booking.entity.Floor;
 import smartdesk.booking.entity.FloorTeamQuota;
@@ -40,7 +43,7 @@ public class TeamQuotaService {
                 floorTeamQuotaRepository
                         .findByFloorAndTeam(floor, team)
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new  ResourceNotFoundException(
                                         "No quota configured for team "
                                                 + team.getName()
                                                 + " on floor "
@@ -66,25 +69,25 @@ public class TeamQuotaService {
             Instant endTime) {
 
         if (team == null) {
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Team is required"
             );
         }
 
         if (floor == null) {
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Floor is required"
             );
         }
 
         if (startTime == null || endTime == null) {
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Start time and end time are required"
             );
         }
 
         if (!startTime.isBefore(endTime)) {
-            throw new IllegalArgumentException(
+            throw new InvalidBookingException(
                     "Start time must be before end time"
             );
         }
@@ -109,7 +112,7 @@ public class TeamQuotaService {
                                 team
                         )
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new  ResourceNotFoundException(
                                         "No quota configured for team "
                                                 + team.getName()
                                                 + " on floor "

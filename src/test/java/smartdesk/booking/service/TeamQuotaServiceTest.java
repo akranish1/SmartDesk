@@ -8,6 +8,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import smartdesk.booking.entity.Floor;
 import smartdesk.booking.entity.FloorTeamQuota;
 import smartdesk.booking.entity.Team;
+import smartdesk.booking.exception.ResourceNotFoundException;
 import smartdesk.booking.repository.BookingRepository;
 import smartdesk.booking.repository.FloorTeamQuotaRepository;
 
@@ -122,7 +123,7 @@ class TeamQuotaServiceTest {
                 Instant.parse("2026-09-23T14:00:00Z");
 
         assertThrows(
-                IllegalArgumentException.class,
+                ResourceNotFoundException.class,
                 () -> teamQuotaService.hasQuotaAvailable(
                         team,
                         floor,
