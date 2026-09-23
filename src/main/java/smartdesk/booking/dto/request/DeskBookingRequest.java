@@ -4,7 +4,6 @@ import java.time.Instant;
 
 public class DeskBookingRequest {
 
-    private Long userId;
     private Long deskId;
     private Instant startTime;
     private Instant endTime;
@@ -13,23 +12,13 @@ public class DeskBookingRequest {
     }
 
     public DeskBookingRequest(
-            Long userId,
             Long deskId,
             Instant startTime,
             Instant endTime) {
 
-        this.userId = userId;
         this.deskId = deskId;
         this.startTime = startTime;
         this.endTime = endTime;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
     }
 
     public Long getDeskId() {

@@ -1,13 +1,7 @@
 package smartdesk.booking.service;
 
-
-import smartdesk.booking.exception.BookingConflictException;
-import smartdesk.booking.exception.DeskUnavailableException;
-import smartdesk.booking.exception.InvalidBookingException;
-import smartdesk.booking.exception.QuotaExceededException;
-import smartdesk.booking.exception.ResourceNotFoundException;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import smartdesk.booking.dto.request.DeskBookingRequest;
 import smartdesk.booking.dto.response.BookingResponse;
 import smartdesk.booking.entity.Booking;
@@ -15,6 +9,11 @@ import smartdesk.booking.entity.BookingStatus;
 import smartdesk.booking.entity.Desk;
 import smartdesk.booking.entity.DeskStatus;
 import smartdesk.booking.entity.User;
+import smartdesk.booking.exception.BookingConflictException;
+import smartdesk.booking.exception.DeskUnavailableException;
+import smartdesk.booking.exception.InvalidBookingException;
+import smartdesk.booking.exception.QuotaExceededException;
+import smartdesk.booking.exception.ResourceNotFoundException;
 import smartdesk.booking.repository.BookingRepository;
 import smartdesk.booking.repository.DeskRepository;
 import smartdesk.booking.repository.UserRepository;
@@ -38,19 +37,20 @@ public class BookingService {
         this.userRepository = userRepository;
         this.teamQuotaService = teamQuotaService;
     }
+
     @Transactional
     public BookingResponse createBooking(
-            DeskBookingRequest request) {
+            DeskBookingRequest request,
+            Long userId) {
 
-        validateRequest(request);
+        validateRequest(request, userId);
 
-        User user = userRepository.findById(
-                request.getUserId()
-        ).orElseThrow(() ->
-                new ResourceNotFoundException(
-                        "User not found: " + request.getUserId()
-                )
-        );
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found: " + userId
+                        )
+                );
 
         if (!user.isActive()) {
             throw new InvalidBookingException(
@@ -114,7 +114,9 @@ public class BookingService {
         return toResponse(savedBooking);
     }
 
-    private void validateRequest(DeskBookingRequest request) {
+    private void validateRequest(
+            DeskBookingRequest request,
+            Long userId) {
 
         if (request == null) {
             throw new InvalidBookingException(
@@ -122,9 +124,9 @@ public class BookingService {
             );
         }
 
-        if (request.getUserId() == null) {
+        if (userId == null) {
             throw new InvalidBookingException(
-                    "User ID must not be null"
+                    "Authenticated user ID must not be null"
             );
         }
 
