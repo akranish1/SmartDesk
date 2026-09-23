@@ -1,4 +1,4 @@
-package smart_desk_booking;
+package smartdesk.booking;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

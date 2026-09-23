@@ -24,6 +24,24 @@ public class DeskSearchService {
         this.deskRepository = deskRepository;
         this.floorRepository = floorRepository;
     }
+    public List<Desk> findAvailableDeskEntities(
+            Long floorId,
+            java.time.Instant startTime,
+            java.time.Instant endTime) {
+
+        Floor floor = floorRepository.findById(floorId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Floor not found: " + floorId
+                        ));
+
+        return deskRepository.findAvailableDesks(
+                floor,
+                DeskStatus.ACTIVE,
+                startTime,
+                endTime
+        );
+    }
 
     public List<DeskResponse> searchAvailableDesks(
             DeskSearchRequest request) {

@@ -21,22 +21,7 @@ public interface FloorTeamQuotaRepository
             Team team
     );
 
-    @Query("""
-        SELECT COUNT(b)
-        FROM Booking b
-        WHERE b.desk.floor = :floor
-          AND b.user.team = :team
-          AND b.status = :status
-          AND b.startTime < :endTime
-          AND b.endTime > :startTime
-        """)
-    long countOverlappingBookingsForTeamOnFloor(
-            @Param("floor") Floor floor,
-            @Param("team") Team team,
-            @Param("status") BookingStatus status,
-            @Param("startTime") Instant startTime,
-            @Param("endTime") Instant endTime
-    );
+
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
