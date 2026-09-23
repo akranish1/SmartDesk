@@ -36,6 +36,8 @@ public class Booking {
     )
     private Instant startTime;
 
+    @Column(name = "checked_in_at")
+    private Instant checkedInAt;
     @Column(
             name = "end_time",
             nullable = false
@@ -112,7 +114,13 @@ public class Booking {
     public Instant getUpdatedAt() {
         return updatedAt;
     }
+    public Instant getCheckedInAt() {
+        return checkedInAt;
+    }
 
+    public void setCheckedInAt(Instant checkedInAt) {
+        this.checkedInAt = checkedInAt;
+    }
     public void setStatus(BookingStatus status) {
         this.status = status;
     }

@@ -2,7 +2,7 @@ package smartdesk.booking.entity;
 
 public enum BookingStatus {
     CONFIRMED,
-    CANCELLED,
+    CHECKED_IN,
     NO_SHOW,
-    COMPLETED
+    CANCELLED
 }

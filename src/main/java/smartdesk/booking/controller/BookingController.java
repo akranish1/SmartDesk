@@ -25,4 +25,17 @@ public class BookingController {
 
         return bookingService.createBooking(request, userId);
     }
+
+    @PostMapping("/{bookingId}/check-in")
+    public BookingResponse checkIn(
+            @PathVariable Long bookingId,
+            Authentication authentication) {
+
+        Long userId = (Long) authentication.getPrincipal();
+
+        return bookingService.checkIn(
+                bookingId,
+                userId
+        );
+    }
 }

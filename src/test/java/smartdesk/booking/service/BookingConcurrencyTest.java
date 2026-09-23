@@ -86,11 +86,10 @@ class BookingConcurrencyTest {
                 BookingResponse response =
                         bookingService.createBooking(
                                 new DeskBookingRequest(
-                                        userId,
                                         desk.getId(),
                                         startTime,
                                         endTime
-                                )
+                                ),userId
                         );
 
                 return bookingRepository

@@ -216,11 +216,11 @@ class FloorTeamQuotaConcurrencyTest {
                     BookingResponse response =
                             bookingService.createBooking(
                                     new DeskBookingRequest(
-                                            user.getId(),
+
                                             desk.getId(),
                                             startTime,
                                             endTime
-                                    )
+                                    ), user.getId()
                             );
 
                     return response.getBookingId();

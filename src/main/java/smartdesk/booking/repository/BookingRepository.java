@@ -38,4 +38,15 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             @Param("startTime") Instant startTime,
             @Param("endTime") Instant endTime
     );
+    @Query("""
+    SELECT b
+    FROM Booking b
+    WHERE b.status = :status
+      AND b.startTime <= :cutoff
+      AND b.checkedInAt IS NULL
+""")
+    List<Booking> findBookingsEligibleForNoShow(
+            @Param("status") BookingStatus status,
+            @Param("cutoff") Instant cutoff
+    );
 }

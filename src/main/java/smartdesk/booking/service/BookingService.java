@@ -18,9 +18,12 @@ import smartdesk.booking.repository.BookingRepository;
 import smartdesk.booking.repository.DeskRepository;
 import smartdesk.booking.repository.UserRepository;
 
+import java.time.Instant;
+
 @Service
 public class BookingService {
 
+    private final BookingWindowService bookingWindowService;
     private final BookingRepository bookingRepository;
     private final DeskRepository deskRepository;
     private final UserRepository userRepository;
@@ -30,12 +33,14 @@ public class BookingService {
             BookingRepository bookingRepository,
             DeskRepository deskRepository,
             UserRepository userRepository,
-            TeamQuotaService teamQuotaService) {
+            TeamQuotaService teamQuotaService,
+            BookingWindowService bookingWindowService) {
 
         this.bookingRepository = bookingRepository;
         this.deskRepository = deskRepository;
         this.userRepository = userRepository;
         this.teamQuotaService = teamQuotaService;
+        this.bookingWindowService = bookingWindowService;
     }
 
     @Transactional
@@ -65,7 +70,11 @@ public class BookingService {
                         "Desk not found: " + request.getDeskId()
                 )
         );
-
+        bookingWindowService.validate(
+                request.getStartTime(),
+                request.getEndTime(),
+                desk.getFloor().getTimezone()
+        );
         if (desk.getStatus() != DeskStatus.ACTIVE) {
             throw new DeskUnavailableException(
                     "Desk is not active: " + desk.getId()
@@ -114,6 +123,38 @@ public class BookingService {
         return toResponse(savedBooking);
     }
 
+    @Transactional
+    public BookingResponse checkIn(
+            Long bookingId,
+            Long userId) {
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Booking not found: " + bookingId
+                        )
+                );
+
+        // User can only check in to their own booking
+        if (!booking.getUser().getId().equals(userId)) {
+            throw new InvalidBookingException(
+                    "You can only check in to your own booking"
+            );
+        }
+
+        if (booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new InvalidBookingException(
+                    "Only confirmed bookings can be checked in"
+            );
+        }
+
+        booking.setStatus(BookingStatus.CHECKED_IN);
+        booking.setCheckedInAt(Instant.now());
+
+        Booking savedBooking = bookingRepository.save(booking);
+
+        return toResponse(savedBooking);
+    }
     private void validateRequest(
             DeskBookingRequest request,
             Long userId) {
