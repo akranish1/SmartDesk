@@ -59,9 +59,8 @@ class FloorTeamQuotaConcurrencyTest {
                 .findByEmployeeCode("EMP002")
                 .orElseThrow();
 
-
         // ---------------------------------------------------------
-        // 2. Find Engineering floor
+        // 2. Find reference desk and floor
         // ---------------------------------------------------------
 
         Desk referenceDesk = deskRepository.findAll()
@@ -73,7 +72,6 @@ class FloorTeamQuotaConcurrencyTest {
         Floor floor = referenceDesk.getFloor();
 
         Team team = alice.getTeam();
-
 
         // ---------------------------------------------------------
         // 3. Find quota
@@ -87,18 +85,15 @@ class FloorTeamQuotaConcurrencyTest {
         int originalQuota =
                 quota.getMaxConcurrentBookings();
 
-
         // ---------------------------------------------------------
-        // 4. Use quota = 1 for this test
+        // 4. Set quota = 1
         // ---------------------------------------------------------
 
         quota.setMaxConcurrentBookings(1);
-
         floorTeamQuotaRepository.saveAndFlush(quota);
 
-
         // ---------------------------------------------------------
-        // 5. Get active desks
+        // 5. Get at least two active desks
         // ---------------------------------------------------------
 
         List<Desk> activeDesks =
@@ -113,25 +108,34 @@ class FloorTeamQuotaConcurrencyTest {
             );
         }
 
+        /*
+         * We deliberately use only two desks.
+         *
+         * The purpose of this test is NOT desk locking.
+         * We want multiple different desks competing
+         * for the SAME team/floor quota.
+         */
+        Desk desk1 = activeDesks.get(0);
+        Desk desk2 = activeDesks.get(1);
 
         // ---------------------------------------------------------
-        // 6. Completely fresh booking interval
+        // 6. Fresh booking interval
         // ---------------------------------------------------------
 
         Instant startTime =
-                Instant.parse("2099-10-02T10:00:00Z");
+                Instant.now().plus(7, java.time.temporal.ChronoUnit.DAYS);
 
         Instant endTime =
-                Instant.parse("2099-10-02T12:00:00Z");
-
+                startTime.plus(2, java.time.temporal.ChronoUnit.HOURS);
 
         // ---------------------------------------------------------
-        // 7. Make sure this interval is clean
+        // 7. Remove existing CONFIRMED bookings
+        //    for this exact interval
         // ---------------------------------------------------------
 
         List<Long> oldBookingIds = new ArrayList<>();
 
-        for (Desk desk : activeDesks) {
+        for (Desk desk : List.of(desk1, desk2)) {
 
             List<Booking> existingBookings =
                     bookingRepository
@@ -144,16 +148,14 @@ class FloorTeamQuotaConcurrencyTest {
 
             existingBookings.forEach(
                     booking ->
-                            oldBookingIds.add(
-                                    booking.getId()
-                            )
+                            oldBookingIds.add(booking.getId())
             );
         }
 
-        bookingRepository.deleteAllById(
-                oldBookingIds
-        );
-
+        if (!oldBookingIds.isEmpty()) {
+            bookingRepository.deleteAllById(oldBookingIds);
+            bookingRepository.flush();
+        }
 
         // ---------------------------------------------------------
         // 8. Concurrency setup
@@ -162,9 +164,7 @@ class FloorTeamQuotaConcurrencyTest {
         int numberOfRequests = 10;
 
         ExecutorService executor =
-                Executors.newFixedThreadPool(
-                        numberOfRequests
-                );
+                Executors.newFixedThreadPool(numberOfRequests);
 
         CountDownLatch startLatch =
                 new CountDownLatch(1);
@@ -175,16 +175,13 @@ class FloorTeamQuotaConcurrencyTest {
         List<Long> createdBookingIds =
                 new ArrayList<>();
 
-
         try {
 
             // -----------------------------------------------------
-            // 9. Create 10 concurrent requests
+            // 9. Create concurrent booking requests
             // -----------------------------------------------------
 
-            for (int i = 0;
-                 i < numberOfRequests;
-                 i++) {
+            for (int i = 0; i < numberOfRequests; i++) {
 
                 final User user =
                         (i % 2 == 0)
@@ -192,22 +189,24 @@ class FloorTeamQuotaConcurrencyTest {
                                 : bob;
 
                 /*
-                 * Different desks.
+                 * Alternate between two DIFFERENT desks.
                  *
-                 * 0 -> D101
-                 * 1 -> D102
-                 * 2 -> D104
-                 * 3 -> D101
+                 * Request:
+                 *
+                 * 0 -> desk1
+                 * 1 -> desk2
+                 * 2 -> desk1
+                 * 3 -> desk2
                  * ...
                  *
-                 * Therefore desk locking is NOT the
-                 * resource being tested.
+                 * Therefore the test is specifically
+                 * checking team/floor quota concurrency.
                  */
 
                 final Desk desk =
-                        activeDesks.get(
-                                i % activeDesks.size()
-                        );
+                        (i % 2 == 0)
+                                ? desk1
+                                : desk2;
 
                 Callable<Long> task = () -> {
 
@@ -216,11 +215,11 @@ class FloorTeamQuotaConcurrencyTest {
                     BookingResponse response =
                             bookingService.createBooking(
                                     new DeskBookingRequest(
-
                                             desk.getId(),
                                             startTime,
                                             endTime
-                                    ), user.getId()
+                                    ),
+                                    user.getId()
                             );
 
                     return response.getBookingId();
@@ -231,13 +230,16 @@ class FloorTeamQuotaConcurrencyTest {
                 );
             }
 
+            // -----------------------------------------------------
+            // 10. Release all requests together
+            // -----------------------------------------------------
 
-            // -----------------------------------------------------
-            // 10. Start all requests together
-            // -----------------------------------------------------
+            System.out.println(
+                    "Starting " + numberOfRequests +
+                            " concurrent booking requests..."
+            );
 
             startLatch.countDown();
-
 
             // -----------------------------------------------------
             // 11. Collect results
@@ -247,11 +249,13 @@ class FloorTeamQuotaConcurrencyTest {
             int rejectedBookings = 0;
 
             System.out.println(
-                    "Expected requests = " + numberOfRequests
+                    "Expected requests = " +
+                            numberOfRequests
             );
 
             System.out.println(
-                    "Submitted futures = " + futures.size()
+                    "Submitted futures = " +
+                            futures.size()
             );
 
             assertEquals(
@@ -270,8 +274,8 @@ class FloorTeamQuotaConcurrencyTest {
                     createdBookingIds.add(bookingId);
 
                     System.out.println(
-                            "SUCCESS -> bookingId="
-                                    + bookingId
+                            "SUCCESS -> bookingId=" +
+                                    bookingId
                     );
 
                 } catch (ExecutionException e) {
@@ -281,14 +285,15 @@ class FloorTeamQuotaConcurrencyTest {
                     Throwable cause = e.getCause();
 
                     System.out.println(
-                            "REJECTED -> "
-                                    + (
-                                    cause != null
-                                            ? cause.getClass().getSimpleName()
-                                            + " : "
-                                            + cause.getMessage()
-                                            : e.getMessage()
-                            )
+                            "REJECTED -> " +
+                                    (
+                                            cause != null
+                                                    ? cause.getClass()
+                                                    .getSimpleName()
+                                                    + " : "
+                                                    + cause.getMessage()
+                                                    : e.getMessage()
+                                    )
                     );
 
                 } catch (InterruptedException e) {
@@ -302,59 +307,46 @@ class FloorTeamQuotaConcurrencyTest {
                 }
             }
 
+            // -----------------------------------------------------
+            // 12. Print final result
+            // -----------------------------------------------------
+
+            System.out.println("--------------------------------");
             System.out.println(
-                    "TOTAL SUCCESS = "
-                            + successfulBookings
+                    "TOTAL SUCCESS = " +
+                            successfulBookings
             );
 
             System.out.println(
-                    "TOTAL REJECTED = "
-                            + rejectedBookings
+                    "TOTAL REJECTED = " +
+                            rejectedBookings
             );
+            System.out.println("--------------------------------");
+
+            // -----------------------------------------------------
+            // 13. Main concurrency assertion
+            // -----------------------------------------------------
 
             assertEquals(
                     1,
-                    successfulBookings
+                    successfulBookings,
+                    "Exactly one booking should succeed because " +
+                            "team/floor quota is 1"
             );
 
             assertEquals(
-                    numberOfRequests - successfulBookings,
-                    rejectedBookings
+                    numberOfRequests - 1,
+                    rejectedBookings,
+                    "All remaining requests should be rejected"
             );
-
 
             // -----------------------------------------------------
-            // 12. Verify application result
-            // -----------------------------------------------------
-
-            System.out.println(
-                    "TOTAL SUCCESS = "
-                            + successfulBookings
-            );
-
-            System.out.println(
-                    "TOTAL REJECTED = "
-                            + rejectedBookings
-            );
-
-            assertEquals(
-                    1,
-                    successfulBookings
-            );
-
-            assertEquals(
-                    9,
-                    rejectedBookings
-            );
-
-
-            // -----------------------------------------------------
-            // 13. Verify database state
+            // 14. Verify database state
             // -----------------------------------------------------
 
             long totalConfirmedBookings = 0;
 
-            for (Desk desk : activeDesks) {
+            for (Desk desk : List.of(desk1, desk2)) {
 
                 List<Booking> bookings =
                         bookingRepository
@@ -365,41 +357,43 @@ class FloorTeamQuotaConcurrencyTest {
                                         startTime
                                 );
 
-                totalConfirmedBookings +=
-                        bookings.size();
+                totalConfirmedBookings += bookings.size();
             }
 
             assertEquals(
                     1,
-                    totalConfirmedBookings
+                    totalConfirmedBookings,
+                    "Database should contain exactly one " +
+                            "confirmed booking"
             );
 
         } finally {
 
             // -----------------------------------------------------
-            // 14. Delete test bookings
+            // 15. Cleanup created bookings
             // -----------------------------------------------------
 
-            bookingRepository.deleteAllById(
-                    createdBookingIds
-            );
+            if (!createdBookingIds.isEmpty()) {
 
+                bookingRepository.deleteAllById(
+                        createdBookingIds
+                );
+
+                bookingRepository.flush();
+            }
 
             // -----------------------------------------------------
-            // 15. Restore original quota
+            // 16. Restore original quota
             // -----------------------------------------------------
 
             quota.setMaxConcurrentBookings(
                     originalQuota
             );
 
-            floorTeamQuotaRepository.saveAndFlush(
-                    quota
-            );
-
+            floorTeamQuotaRepository.saveAndFlush(quota);
 
             // -----------------------------------------------------
-            // 16. Shutdown executor
+            // 17. Shutdown executor
             // -----------------------------------------------------
 
             executor.shutdown();

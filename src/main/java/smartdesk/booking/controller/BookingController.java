@@ -1,5 +1,6 @@
 package smartdesk.booking.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import smartdesk.booking.dto.request.DeskBookingRequest;
@@ -18,7 +19,7 @@ public class BookingController {
 
     @PostMapping
     public BookingResponse createBooking(
-            @RequestBody DeskBookingRequest request,
+            @Valid @RequestBody DeskBookingRequest request,
             Authentication authentication) {
 
         Long userId = (Long) authentication.getPrincipal();

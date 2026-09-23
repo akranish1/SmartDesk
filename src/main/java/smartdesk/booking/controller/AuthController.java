@@ -1,5 +1,6 @@
 package smartdesk.booking.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,14 +22,14 @@ public class AuthController {
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponse register(
-            @RequestBody RegisterRequest request
+            @Valid @RequestBody RegisterRequest request
     ) {
         return authService.register(request);
     }
 
     @PostMapping("/login")
     public AuthResponse login(
-            @RequestBody LoginRequest request
+            @Valid  @RequestBody LoginRequest request
     ) {
         return authService.authenticate(request);
     }
